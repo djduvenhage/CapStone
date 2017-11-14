@@ -1,0 +1,866 @@
+---
+title: "Data Science Capstone Week 3"
+author: "Dawid J Duvenhage"
+date: "October 12, 2017"
+output:
+   html_document: default
+---
+
+###A1. Background
+
+#####"In this capstone we will be applying data science in the area of natural language processing. As a first step toward working on this project, you should familiarize yourself with Natural Language Processing, Text Mining, and the associated tools in R. Here are some resources that may be helpful to you."   
+
+####Week 1 - Task 0 Understanding the problem:
+#####https://www.coursera.org/learn/data-science-project/supplement/Iimbd/task-0-understanding-the-problem
+
+#####The Data: https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip     
+
+####Tasks to accomplish:
+#####1. Obtaining the data - Can you download the data and load/manipulate it in R?
+#####2. Familiarizing yourself with NLP and text mining - Learn about the basics of natural language processing and how it relates to the data science process you have learned in the Data Science Specialization.
+
+####Week 1 - Task 1 Getting and Cleaning the Data:
+#####https://www.coursera.org/learn/data-science-project/supplement/IbTUL/task-1-getting-and-cleaning-the-data
+
+####Tasks to accomplish:
+#####1. Tokenization - identifying appropriate tokens such as words, punctuation, and numbers. Writing a function that takes a file as input and returns a tokenized version of it.
+#####2. Profanity filtering - removing profanity and other words you do not want to predict.
+
+####Week 2 - Task 2 "Exploratory Data Analysis""
+#####https://www.coursera.org/learn/data-science-project/supplement/BePVz/task-2-exploratory-data-analysis
+#####"The first step in building a predictive model for text is understanding the distribution and relationship between the words, tokens, and phrases in the text. The goal of this task is to understand the basic relationships you observe in the data and prepare to build your first linguistic models."
+
+####Tasks to accomplish:
+#####1. Exploratory analysis - perform a thorough exploratory analysis of the data, understanding the distribution of words and relationship between the words in the corpora.
+#####2. Understand frequencies of words and word pairs - build figures and tables to understand variation in the frequencies of words and word pairs in the data.
+
+####Week 2 - "Task 3 Modeling""
+#####https://www.coursera.org/learn/data-science-project/supplement/2IiM9/task-3-modeling
+#####1. Build basic n-gram model - using the exploratory analysis you performed, build a basic n-gram model for predicting the next word based on the previous 1, 2, or 3 words.
+#####2. Build a model to handle unseen n-grams - in some cases people will want to type a combination of words that does not appear in the corpora. Build a model to handle cases where a particular n-gram isn't observed.
+
+####Week 3 - "Task 4 Predictive Modeling""
+#####https://www.coursera.org/learn/data-science-project/supplement/SKIQt/task-4-prediction-model
+#####The goal of this exercise is to build and evaluate your first predictive model. You will use the n-gram and backoff models you built in previous tasks to build and evaluate your predictive model. The goal is to make the model efficient and accurate.
+#####1.	Build a predictive model based on the previous data modeling steps - you may combine the models in any way you think is appropriate.
+#####2.	Evaluate the model for efficiency and accuracy - use timing software to evaluate the computational complexity of your model. Evaluate the model accuracy using different metrics like perplexity, accuracy at the first word, second word, and third word.
+
+
+###A2. Resources used:
+#####1. https://cran.r-project.org/web/packages/ngram/ngram.pdf
+#####2. https://cran.r-project.org/web/packages/ngram/README.html
+#####3. https://cran.r-project.org/web/packages/tm/vignettes/tm.pdf
+#####4. http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/
+#####5. https://cran.r-project.org/web/packages/ngram/vignettes/ngram-guide.pdf
+#####6. https://cran.r-project.org/web/packages/quanteda/vignettes/quickstart.html
+#####7. http://beyondvalence.blogspot.com/2014/01/text-mining-4-performing-term.html
+#####8. https://www.r-bloggers.com/text-mining-the-complete-works-of-william-shakespeare/
+#####9. https://www.slideshare.net/rdatamining/text-mining-with-r-an-analysis-of-twitter-data
+#####10. http://www.sthda.com/english/wiki/text-mining-and-word-cloud-fundamentals-in-r-5-simple-steps-you-should-know
+
+
+##-------------------------------------------------------------------------------------
+###B. Basic Environment Setup
+###B1. Loading libraries
+```{r, echo= FALSE, message= FALSE, warning= FALSE}
+#knitr::opts_chunk$set(error = TRUE)
+#args <- commandArgs(TRUE)
+
+suppressMessages(library(readtext))      # reading text files 
+suppressMessages(library(tm))            # for text mining
+suppressMessages(library(SnowballC))     # for text stemming  
+suppressMessages(library(wordcloud))     # word-cloud generator
+suppressMessages(library(RColorBrewer))  # color palettes
+suppressMessages(library(dplyr))         # use of pipes and count() 
+suppressMessages(library(plyr))
+suppressMessages(library(tidytext)) 
+suppressMessages(library(tidyr)) 
+suppressMessages(library(bigmemory))     # use to manipulate big matrix's
+suppressMessages(library(ggplot2))
+suppressMessages(library(reshape2))
+#suppressMessages(library(RWeka)         #tokenizer to evaluate bigrams and trigrams 
+#my system has an issue loading the RWeka library, so I'll work with ngrams for now
+suppressMessages(library(ngram))         #tokenizer to evaluate bigrams and trigrams 
+suppressMessages(library(knitr))         #to resolve issue of R-Markdown File Not Knitting, see link below:
+#https://support.rstudio.com/hc/en-us/community/posts/202705076-R-Markdown-File-Not-Knitting-Since-Recent-RStudio-Update
+```
+
+###B2. Load cookbook-r.com ggplot 2 Helper Function for Multiple plot panel
+```{r, echo= FALSE, message= FALSE, warning= FALSE}
+### Helper Function: Multiple plot function
+### http://www.cookbook-r.com/Graphs/Multiple_graphs_on_one_page_(ggplot2)/
+### ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+### - cols:   Number of columns in layout
+### - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+
+### If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+### then plot 1 will go in the upper left, 2 will go in the upper right, and
+### 3 will go all the way across the bottom.
+
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+        library(grid)
+        
+        # Make a list from the ... arguments and plotlist
+        plots <- c(list(...), plotlist)
+        
+        numPlots = length(plots)
+        
+        # If layout is NULL, then use 'cols' to determine layout
+        if (is.null(layout)) {
+                # Make the panel
+                # ncol: Number of columns of plots
+                # nrow: Number of rows needed, calculated from # of cols
+                layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                                 ncol = cols, nrow = ceiling(numPlots/cols))
+        }
+        
+        if (numPlots==1) {
+                print(plots[[1]])
+                
+        } else {
+                # Set up the page
+                grid.newpage()
+                pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+                
+                # Make each plot, in the correct location
+                for (i in 1:numPlots) {
+                        # Get the i,j matrix positions of the regions that contain this subplot
+                        matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+                        
+                        print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                                        layout.pos.col = matchidx$col))
+                }
+        }
+}
+```
+
+
+##-------------------------------------------------------------------------------------
+###C. Data Mining
+###Step C1: File and Data Setup
+####1.1 Set working directory, file paths, and download the data.    
+```{r, echo= FALSE, results='hide', message= FALSE, warning= FALSE}
+#Set file path to working directory.
+#Important: working directory should point at the file where .Rmd is located
+setwd("C:/Users/Dawid J Duvenhage/Desktop/Coursera Courses/Data Scientist Specialization/10_Cap Stone Project")
+
+#Download the raw data sets.
+#Set correct path for file download.
+filepath <- "C:/Users/Dawid J Duvenhage/Desktop/Coursera Courses/Data Scientist Specialization/10_Cap Stone Project/Assignment"
+if(!file.exists("./Assignment")){dir.create("./Assignment")}
+
+fileUrl <- "https://d396qusza40orc.cloudfront.net/dsscapstone/dataset/Coursera-SwiftKey.zip"
+
+if (!file.exists("Assignment/coursera-swiftkey.zip")){
+        download.file(fileUrl, destfile="./Assignment/coursera-swiftkey.zip")    
+
+        #Unzip raw dataSet to /Project1 directory
+        unzip(zipfile="./Assignment/coursera-swiftkey.zip",exdir="./Assignment")
+}
+#Download and read list of profane/bad words.
+fileURL <- "https://raw.githubusercontent.com/shutterstock/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words/master/en"
+
+if (!file.exists("/Assignment/profane.txt")){
+        download.file(fileURL, destfile="./Assignment/profane.txt")
+}
+```
+####1.2 Read raw training and profane table data.
+```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+news <- readLines("Assignment/final/en_US/en_US.news.txt", encoding="UTF-8")
+blogs <- readLines("Assignment/final/en_US/en_US.blogs.txt", encoding="UTF-8")
+twitter <- readLines("Assignment/final/en_US/en_US.twitter.txt", encoding="UTF-8")
+
+#Read the profane word library as downloaded to hard drive.
+profane <- read.table("Assignment/profane.txt", header=FALSE, sep="\n", strip.white=TRUE)
+```
+
+###Step C2: Raw Data Exploration
+####2.1 Evaluate object.size in MB, obtain file summary (length, class, mode), and inspect the first line in the text files:
+```{r, echo= FALSE}
+bNews <- object.size(news)
+bBlogs <- object.size(blogs) 
+bTwitter <- object.size(twitter)
+
+bTotal <- sum(bNews, bBlogs, bTwitter)
+
+mbCombined <- c(NewsMB= (bNews/1024^2), BlogsMB= (bBlogs/1024^2), 
+                                        TwitterMB= (bTwitter/1024^2), TotalMB= (bTotal/1024^2) )
+mbCombined
+
+sumNews <- summary(news)
+sumBlogs <- summary(blogs)
+sumTwitter <- summary(twitter)
+
+sumCombined <- list(NewsSummary= sumNews, BlogsSummary= sumBlogs, TwitterSummary= sumTwitter)
+sumCombined
+
+headNews <- head(news, 1)
+headBlogs <- head(blogs, 1)
+headTwitter <- head(twitter, 1)
+
+headCombined <- list(NewsSample= headNews, BlogsSample= headBlogs, TwitterSample= headTwitter)
+headCombined
+```
+
+####2.2 Number of lines per file:
+```{r, echo= FALSE}
+newsL <- length(news)
+blogsL <- length(blogs)
+twitterL <- length(twitter)
+
+totalLines <- sum(newsL, blogsL, twitterL)
+
+linesCombined <- c(news= newsL, blogs= blogsL, twitter= twitterL, totalLines= totalLines)
+linesCombined
+```
+
+####2.3 Number of words per file:
+####(note: this step takes a few minutes)
+```{r, echo= FALSE}
+newsW <- length(unlist(strsplit(news," ")))           
+blogsW <- length(unlist(strsplit(blogs," ")))          
+twitterW <- length(unlist(strsplit(twitter," ")))        
+totalW <- sum(newsW + blogsW + twitterW)
+wordsCombined <- c(newsWords= newsW, blogWords= blogsW, twitterWords= twitterW, totalWords= totalW)
+wordsCombined
+```
+
+###Step C3. Create single reduce raw data file and Remove non-ASCII characters
+#####Reduce the total raw data file size to 3000 lines total, i.e. 1000 each from news, blogs, and twitter and then confirm line count as 1000 lines per object.    
+#####By removing the non-ASCII characters we can safely assume that the remaining words are largely of the English language. While the ASCII code primarily represents English characters and numbers, other European languages also have English letter characters. Hence, this data cleanup is not comprehensive in the sense of foreign language clean up.
+#####See attached references:    
+#####https://www.quora.com/What-is-the-difference-between-ASCII-and-unicode-characters-difference-between-UTF-8-and-UTF-16    
+#####https://docs.oracle.com/cd/B19306_01/server.102/b14225/ch2charset.htm
+```{r, echo= FALSE}
+                                                  #other sample code:
+news_trunc <- sample(news[1:1000])                #newsL*0.05)
+blogs_trunc <- sample(blogs[1:1000])              #blogsL*0.0025)
+twitter_trunc <- sample(twitter[1:1000])          #twitterL*0.0025)
+
+news_truncL <- length(news_trunc)
+blogs_truncL <- length(blogs_trunc)
+twitter_truncL <- length(twitter_trunc)
+
+total_truncL <- sum(news_truncL, blogs_truncL, twitter_truncL )
+
+linesCombined2 <- c(newsReduced= news_truncL, blogsReduced= blogs_truncL, twitterReduced= twitter_truncL, totalReduced= total_truncL)
+linesCombined2
+```
+
+####Create a single combined truncated data object and remove any non-ASCII characters before creating Corpus.
+```{r}
+comb_trunc <- c(news_trunc, blogs_trunc, twitter_trunc)
+comb_trunc <- iconv(comb_trunc, "latin1", "ASCII", sub="")
+```
+
+###Step C4: Create Corpus
+#####Load the data as a corpus and inspect lines 4 to 6, then clean up the memory. Ask R to return memory to the operating system while releasing objects that are no longer in used (Only the first "memory clearing" instance is snowed below. Instances further down in the code are hidden).
+#####See interesting section on memory leaks: http://adv-r.had.co.nz/memory.html
+```{r}
+combCorpus <- Corpus(VectorSource(comb_trunc))
+        inspect(combCorpus[4:6])
+```
+
+####Object memory cleared and memory released:
+```{r}
+rm(news_trunc, blogs_trunc, twitter_trunc, comb_trunc)
+gc()
+```
+
+###Step C5: Text Transformation
+#####For this assignment "cleaning  up the text data" follows an uncondensed "Stepwise Text Transformation"" so each step can be inspected.
+#####The memory for each of the individually created data objects is cleared as soon as it is not further used.   
+
+####5.1 Removing special characters:
+```{r}
+toSpace <- content_transformer(function (x , pattern ) gsub(pattern, " ", x))
+           combCorpusS <- tm_map(combCorpus, toSpace, "/")
+           combCorpusS <- tm_map(combCorpus, toSpace, "@")
+```
+```{r, echo=FALSE, results='hide'}
+#clear up memory
+rm(combCorpus)
+gc()
+```
+
+####5.2 Convert the text to lower case:
+```{r}
+combCorpusSL <- tm_map(combCorpusS, content_transformer(tolower))
+#One can Inspect the corpus objects
+#inspect(combCorpusSL)
+```
+```{r, echo=FALSE, results='hide'}
+#clear up memory
+rm(combCorpusS)
+gc()
+```
+
+####5.3 Remove numbers:
+```{r}
+combCorpusSLN <- tm_map(combCorpusSL, content_transformer(removeNumbers))
+```
+```{r, echo=FALSE, results='hide'}
+#clear up memory
+rm(combCorpusSL)
+gc()
+```
+
+####5.4 Remove English common stop words:
+```{r}
+combCorpusSLNS <- tm_map(combCorpusSLN, removeWords, stopwords("english"))
+```
+```{r, echo=FALSE, results='hide'}
+#clear up memory
+rm(combCorpusSLN)
+gc()
+```
+
+####5.5 Remove profane words:
+```{r}
+names(profane)<-"profane"
+combCorpusSLNSP <- tm_map(combCorpusSLNS, removeWords, profane[,1])
+```
+```{r, echo=FALSE, results='hide'}
+#clear up memory
+rm(combCorpusSLNS)
+gc()
+```
+
+####5.6 Remove punctuations:
+```{r}
+combCorpusSLNSPP <- tm_map(combCorpusSLNSP, content_transformer(removePunctuation))
+```
+```{r, echo=FALSE, results='hide'}
+#clear up memory
+rm(combCorpusSLNSP)
+gc()
+```
+
+####5.7 Eliminate extra white spaces:
+```{r}
+combCorpusSLNSPPW <- tm_map(combCorpusSLNSPP, content_transformer(stripWhitespace))
+```
+```{r, echo=FALSE, results='hide'}
+#clear up memory
+rm(combCorpusSLNSPP)
+gc()
+```
+
+####5.8 Text stemming:
+#####Removing suffixes from words to get the common origin.
+#####Stemming is a way to improve / increase word coverage, i.e. keep memory use lower.
+```{r}
+combCorpusSLNSPPWSt <- tm_map(combCorpusSLNSPPW, content_transformer(stemDocument))
+```
+```{r, echo=FALSE, results='hide'}
+#clear up memory
+rm(combCorpusSLNSPPW)
+gc()       
+```
+
+####5.9 Write CLEANED corpus to disk  (still includes sparse terms)
+#####Optional step.
+```{r, results='hide'}
+#writeCorpus(combCorpusSLNSPPWSt)
+```
+
+
+##-------------------------------------------------------------------------------------
+###D. Tokenize using ngram package
+####Step D1. Create a string of the cleaned corpus
+#####Perform Tokenization, and thus obtain one (uni-), two (bi-), three (tri-), and four (tetra-) word combinations that appear frequently.
+```{r}
+strCorpus <- concatenate ( lapply (combCorpusSLNSPPWSt , "[", 1) )
+        ng1 <- ngram(strCorpus, n=1)
+        ng2 <- ngram(strCorpus, n=2)
+        ng3 <- ngram(strCorpus, n=3)
+        ng4 <- ngram(strCorpus, n=4)
+```
+
+####Step D2. Inspect strCorpus data
+#####Take a look at the first five entries in each of the ngrams generated.
+#####other helper functions that can be used to inspect the corpus include:
+#####(i)  print(ng2, output="full")  &   get.phrasetable(ng2)  &       
+#####(ii) To make new sentences use: babble(ng=ng2, genlen=12, seed= 101562)
+```{r}
+head(get.phrasetable(ngram(strCorpus, n=1)), 5)
+head(get.phrasetable(ngram(strCorpus, n=2)), 5)
+head(get.phrasetable(ngram(strCorpus, n=3)), 5)
+head(get.phrasetable(ngram(strCorpus, n=4)), 5)
+```
+
+####Step D3. Extract top 20 uni-, bi-, tri-, and tetra- grams for visual evaluation and plot
+#####Make a multi panel plot using code obtained from cookbook-r.com
+```{r echo= FALSE, fig1, out.width = '150%'}
+ng1Top20 <- head(get.phrasetable(ngram(strCorpus, n=1)),20)
+ng2Top20 <- head(get.phrasetable(ngram(strCorpus, n=2)),20)
+ng3Top20 <- head(get.phrasetable(ngram(strCorpus, n=3)),20)
+ng4Top20 <- head(get.phrasetable(ngram(strCorpus, n=4)),20)
+
+
+p1 <- ggplot(ng1Top20, aes(x=reorder(ngrams, freq), y=freq)) + 
+                geom_bar(stat="identity") + 
+                        xlab("Terms") + ylab("Count") + 
+                                ggtitle("Top 20 uni-grams") + 
+                                        coord_flip()
+
+p2 <- ggplot(ng2Top20, aes(x=reorder(ngrams, freq), y=freq)) + 
+                geom_bar(stat="identity") + 
+                        xlab("Terms") + ylab("Count") + 
+                                ggtitle("Top 20 bi-grams") + 
+                                        coord_flip()
+
+p3 <- ggplot(ng3Top20, aes(x=reorder(ngrams, freq), y=freq)) + 
+                geom_bar(stat="identity") + 
+                        xlab("Terms") + ylab("Count") + 
+                                ggtitle("Top 20 tri-grams") + 
+                                        coord_flip()
+
+p4 <- ggplot(ng4Top20, aes(x=reorder(ngrams, freq), y=freq)) + 
+                geom_bar(stat="identity") + 
+                        xlab("Terms") + ylab("Count") + 
+                                ggtitle("Top 20 tetra-grams") + 
+                                        coord_flip()
+
+multiplot(p1, p2, p3, p4, cols=2)   
+```
+
+####4.3 Word Coverage
+#####Determine the number of words needed in a frequency sorted dictionary to satisfy 50% and 90% coverage of all words present in the dictionary.
+#####Using the string corpus setup above a function is developed to calculate the suggested coverage's in the unigram.
+#####It is determined that coverage increases exponentially when going from 50 to 90 percent coverage, i.e. increases by a factor 10 going from 50 to 90 % coverage.
+#####Word coverage per available memory can be improved through stemming, removing redundant sparse terms, and potentially dropping two letter words.
+```{r}
+#Setup the function to help extract the word coverage information 
+getCoverage <- function (unigram, coverage)
+        {
+         #start with zero frequency
+         frequency <- 0
+         #determined final coverage frequency from unigram
+         coverageFrequency <- coverage * sum(unigram$freq)
+         #the unigram information already comes sorted
+         for (i in 1:nrow(unigram)) {
+                 if (frequency >= coverageFrequency)
+                        
+                 {
+                  return (i)
+                 }
+                 frequency <- frequency + unigram[i, "freq"]
+                                     }
+         return (nrow(unigram))
+        }
+
+#Setup the unigram dictionary with column names from string corpus
+unigram <- get.phrasetable(ngram(strCorpus, n=1))
+```
+```{r}
+#Request the coverages
+getCoverage(unigram, coverage= 0.5)
+getCoverage(unigram, coverage= 0.9)
+```
+    
+
+##-------------------------------------------------------------------------------------
+###E. Term Document Matrix's (tdm)
+####Step E1. Build the matrix       
+#####Use TermDocumentMatrix (or DocumentTermMatrix) depending on whether you want terms as rows and documents as columns, or vice versa.
+
+####Step E2. Inspect the tdm    
+#####Inspect tdm dimensions, evaluate the first ten lines of the tdm, and find the 100 most frequent terms in the tdm.
+#####There are several other ways to inspect the term-document matrix:
+#####(i)  View(as.matrix(tdm[1:1000, 1:5]))   &    inspect(dtm[1:2])   &   meta(dtm[[2]], "id")     &    
+#####(ii) identical(dtm[[2]], dtm[["dtm.txt"]])   &   inspect(dtm[[2]])     &    lapply(dtm[1:2], as.character)
+```{r}
+dtm <- TermDocumentMatrix(combCorpusSLNSPPWSt)
+dim(dtm) 
+inspect(dtm[1:10,]) 
+findFreqTerms(dtm, 100)    #also use: findAssocs(dtm, "word to associate with", 0.8)
+```
+
+####Step E3. Evaluate sparsity and remove sparse terms    
+#####It appears that manipulation of sparse terms may in some instances impact the way the term document matrix respond to the word cloud analysis. It was opted not to include removal of sparse terms for the moment.
+```{r}
+#Removing those terms at least 95% sparse (i.e. terms occurring 0 times in a document)
+#dtm <- removeSparseTerms(dtm, 0.95)      
+#str(dtm)                                 #also use: inspect(removeSparseTerms(dtm, 0.95))
+```
+```{r, echo=FALSE, results='hide'}
+#clear up memory
+rm(combCorpusSLNSPPWSt)
+gc()
+```
+
+####Step E4. Evaluate the term document matrix
+####4.1 Plotting Word Cloud
+#####Create a suitable work matrix, inspect the data, and create a Word Cloud representing the 120 most frequent used words in term document matrix.
+```{r echo= FALSE, message= FALSE, warning= FALSE, fig2, out.width = '300%'}
+m <- as.matrix(dtm)
+v <- sort(rowSums(m), decreasing=TRUE)
+d <- data.frame(word= names(v), freq=v)
+
+head(d,10)
+
+wordcloud(words = d$word, freq = d$freq, 
+                min.freq = 1, max.words = 120, 
+                        random.order=FALSE, rot.per=0.35,
+                                colors=brewer.pal(8, "Dark2"))
+```
+
+####4.2 Word Frequency analysis
+#####Expand the evaluation to include a bar plot representing all the words appearing more than a 100 times in the term document matrix. This plot in essence represents the same top 20 entities than was depicted above in the corpus unigram.
+```{r echo= FALSE, fig3, out.width = '150%'}
+d30 <- subset(d, d$freq>100)
+
+ggplot(d30, aes(x=reorder(word, freq), y=freq)) + 
+                geom_bar(stat="identity") + 
+                        xlab("Terms") + ylab("Count") + 
+                                ggtitle("Term Document Words used a 100 times or more") + 
+                                        coord_flip()
+```
+
+
+##-------------------------------------------------------------------------------------
+###F. Model Development - Markov chain algorithm
+
+####The plan going forward.
+
+#####Basically the plan is to extract the individual words from the bi-, tri-, and tetra- grams as individually accessible entities that can be stored, searched, and recovered on request via a very basic Markov chainlike algorithm arrangement.               
+
+#####For instance, if the user, in the Shiny App, types the first word, the word will be first tested against the uni-gram to determine if the word is in the ng-database. If absent, no predicted choice is offered.          
+
+#####However, if the word is present in the uni-gram database, the word will first be tested against the first word entries in the tetra-gram. The reason to start the search in the tetra-gram is, if present in the tetra-gram database, will return the highest predicted word coverage, i.e. three words following the first word in the tetra-gram.      
+
+#####If there is no corresponding first word in the tetra-gram the search will expanded to the first word in the tri-gram database, and if not found there, access the bi-gram data base.     
+
+#####On which ever search the first word is allocated, the representing second, third, and fourth word will be offered to the user as an option to pick from. If the user picks a word, the search process highlighted above is repeated on the chosen word. If the user does not pick one of the presented options, and type a new word, the same process is repeated on the new word entered.
+
+#_____________________________________________________________________________
+
+####Step F1. Prepare uni-, di-, tri-, and tetra- word phrase databasis and place holders
+```{R}
+                                                                      ###### REMEMBER TO REMOVE THE HEADS HERE ###########
+#Create uni-phrase table from strCorpus
+ng1All <- get.phrasetable(ngram(strCorpus, n=1))
+#Extract all the uni-names
+ng1AllNames <- ng1All$ngrams
+#Place uni-names into a data frame
+ng1DB <- as.data.frame(do.call(rbind, strsplit(ng1AllNames, ' ')))     #head(do.call(rbind, strsplit(ng1AllNames, ' '))))
+#Name the data frame columns
+colnames(ng1DB) <- c("word1")
+
+#Create bi-phrase table from strCorpus
+ng2All <- get.phrasetable(ngram(strCorpus, n=2))
+#Extract all the bi-names
+ng2AllNames <- ng2All$ngrams
+#Place bi-names into a data frame
+ng2DB <- as.data.frame(do.call(rbind, strsplit(ng2AllNames, ' ')))     #head(do.call(rbind, strsplit(ng2AllNames, ' '))))
+#Name the data frame columns
+colnames(ng2DB) <- c("word1", "word2")
+
+#Create tri-phrase table from strCorpus
+ng3All <- get.phrasetable(ngram(strCorpus, n=3))
+#Extract all the tri-names
+ng3AllNames <- ng3All$ngrams
+#Place tri-names into a data frame
+ng3DB <- as.data.frame(do.call(rbind, strsplit(ng3AllNames, ' ')))     #head(do.call(rbind, strsplit(ng3AllNames, ' ')))) 
+#Name the data frame columns
+colnames(ng3DB) <- c("word1", "word2", "word3")
+
+#Create tetra-phrase table from strCorpus
+ng4All <- get.phrasetable(ngram(strCorpus, n=4))
+#Extract all the tetra-names
+ng4AllNames <- ng4All$ngrams
+#Place tetra-names into a data frame
+ng4DB <- as.data.frame(do.call(rbind, strsplit(ng4AllNames, ' ')))     #head(do.call(rbind, strsplit(ng4AllNames, ' ')))) 
+#Name the data frame columns
+colnames(ng4DB) <- c("word1", "word2", "word3", "word4")
+
+
+#Create an empty character vector to catch word choices and final word choices:
+myWord4 <- as.data.frame(matrix(ncol=3), stringsAsFactors=FALSE)
+colnames(myWord4) <- c("word2", "word3", "word4")
+
+myWord3 <- as.data.frame(matrix(ncol=2), stringsAsFactors=FALSE)
+colnames(myWord3) <- c("word2", "word3")
+
+myWord2 <- as.data.frame(matrix(ncol=1), stringsAsFactors=FALSE)
+colnames(myWord2) <- c("word2")
+
+#Place holder for word choices offered to the user
+myWordChoice <- as.data.frame(matrix(ncol=2, nrow= 5), stringsAsFactors=FALSE)
+colnames(myWordChoice) <- c("choice#", "myWordChoice")
+rownames(myWordChoice) <- c("word2", "word3", "word4", "askForUserEntry","wantToExit")
+myWordChoice[1:5,1] <- c(1,2,3,4,5)
+myWordChoice[4,2] <- ("")
+myWordChoice[5,2] <- ("ex")
+
+
+#Place holders for sentence being created
+newWordChoice <- as.character()
+mySentence <- as.character()
+```
+
+
+#_____________________________________________________________________________
+####Step F2. Extract on request the associated words from uni-, bi-, tri-, and tetra-grams.
+#####Ask for a word and check that the word is in the uni-gram before proceeding
+```{r, message= FALSE, warning= FALSE}
+#User input to request a word:
+#****************************
+
+myWordstart <-  readline(prompt="Enter a word to start the sentence:")
+        
+        #Add the "myWord" to mySentence character string
+        mySentence <- append(mySentence, myWordstart)         
+
+        #Check if User input is present in unigram
+        if    ((!myWordstart %in% ng1DB$word1) == TRUE) {
+        
+                #If User input not present in unigram ask for next word     
+                myWordstart <- readline(prompt="I do not know that one, give me another word: ") 
+                
+                        #Add the "myWord" to mySentence character string
+                        mySentence <- append(mySentence, myWordstart)
+                        
+```
+
+
+####Step F3. Check if User selection from offered choices do not request a new word or to exit the program.
+#####If new word is requested repeat process in Step F2.      
+#####If option is to "exit" exit code, printing the final sentence.     
+#####When the user entries are tested against, and found in uni-, bi-, tri-, and tetra-grams, the relevant word phrase is extracted, and then each indiviual word assigned to the objects word1, word2, word3, and word5 as applicable. The user is offered the option to choose from these words what the next word would be, and show the sentence as it is developing. If there is no suitable word to use from the prediction, allow the user to enter another word, and repeat the formentioned procedure till the user ask to exit. On exit the final senetence is printed. 
+```{r, message= FALSE, warning= FALSE}
+#Check if User input is present in uni-, bi-, tri-, and tetra-grams:
+#Append word selection place holders
+#******************************************************************        
+        } else        
+                myWord <- myWordstart
+
+                while (!"ex" == newWordChoice) { 
+                        
+                        if    ("" == newWordChoice) {
+                                
+                                myWord <-   readline(prompt="Enter a word to start the sentence:")  #"done"
+        
+                                        #Add the "myWord" to mySentence character string
+                                        mySentence <- append(mySentence, myWord)         
+
+                                        #Check if User input is present in unigram
+                                        if    (!myWord %in% ng1DB$word1) {
+        
+                                                #If User input not present in unigram ask for next word     
+                                                 myWord <- readline(prompt="I do not know that one, give me another word: ") 
+                
+                                                #Add the "myWord" to mySentence character string
+                                                mySentence <- append(mySentence, myWord)
+                                        }
+                                
+                        
+                        } else
+                                #Clear word selection objects 
+                                myWord2 <- myWord2[0,]
+                                myWord3 <- myWord3[0,]
+                                myWord4 <- myWord4[0,]
+               
+                                #Clear myWordChoice and reestablish an empty data frame
+                                myWordChoice <- as.character()
+                                myWordChoice <- as.data.frame(matrix(ncol=2, nrow= 5), stringsAsFactors=FALSE)
+                                colnames(myWordChoice) <- c("choice#", "myWordChoice")
+                                rownames(myWordChoice) <- c("word2", "word3", "word4", "askForUserEntry","wantToExit")
+                                myWordChoice[1:5,1] <- c(1,2,3,4,5)
+                                myWordChoice[4,2] <- ("")
+                                myWordChoice[5,2] <- ("ex")
+                
+                                #Add the "myWord" and "newWordChoice" to mySentence character string
+                                        #mySentence <- append(mySentence,newWordChoice)
+                                        #mySentence <- append(mySentence, myWord)  
+                
+                                #check if the word is in tetra-, then tri-, then bi- gram 
+                                #with this approach go for maximum related wors to user input word  
+                                #check if the word is in tetra-gram 
+                                if
+                                        (myWord %in% ng4DB$word1) {
+                
+                                        j = 1
+                                                for (i in 1:nrow(ng4DB)) {
+                                                        if ((ng4DB$word1[i] == myWord) == FALSE) {
+                                                        next(i)
+                                                } else {
+                                                        myWord4[j,1] <-  as.data.frame(as.list(as.character(ng4DB$word2[i])), stringsAsFactors=FALSE) 
+                                                        myWord4[j,2] <-  as.data.frame(as.list(as.character(ng4DB$word3[i])), stringsAsFactors=FALSE) 
+                                                        myWord4[j,3] <-  as.data.frame(as.list(as.character(ng4DB$word4[i])), stringsAsFactors=FALSE)
+                                                j = j + 1 
+                                                next(i)
+                                                        }
+                                                }
+                                        
+                                        #take only the top option
+                                        #myWordChoice[1,1] <- append(myWordChoice, myWord4$word2[1])   
+                                        myWordChoice[1,2] <- myWord4$word2[1]  
+                                        #myWordChoice[2,1] <- append(myWordChoice, myWord4$word3[2])
+                                        myWordChoice[2,2] <- myWord4$word3[1]          
+                                        #myWordChoice[3,1] <- append(myWordChoice, myWord4$word4[3])
+                                        myWordChoice[3,2] <- myWord4$word4[1]
+                                        
+                                        #colnames(myWordChoice) <- c("choice#", "myWordChoice")
+                                        
+                                #check if the word is in tri-gram    
+                                } else if 
+                                        (myWord %in% ng3DB$word1) {
+
+                                                j = 1
+                                                for (i in 1:nrow(ng3DB)) {
+                                                        if ((ng3DB$word1[i] == myWord) == FALSE) {
+                                                        next(i)
+                                                } else {
+                                                        myWord3[j,1] <-  as.data.frame(as.list(as.character(ng3DB$word2[i])), stringsAsFactors=FALSE) 
+                                                        myWord3[j,2] <-  as.data.frame(as.list(as.character(ng3DB$word3[i])), stringsAsFactors=FALSE) 
+                                                j = j + 1       
+                                                next(i)
+                                                        }
+                                                }
+                                        
+                                        #take only the top option
+                                        #myWordChoice[1,1] <- append(myWordChoice, myWord3$word2)   
+                                        myWordChoice[1,2] <- myWord3$word2[1]        
+                                        
+                                        #myWordChoice[2,1] <- append(myWordChoice, myWord3$word3)  
+                                        myWordChoice[2,2] <- myWord3$word3[1] 
+                                        
+                                        myWordChoice[3,2] <- ""
+                                        
+                                        #colnames(myWordChoice) <- c("choice#", "myWordChoice")
+                                
+                
+                                        #check if the word is in bi-gram   
+                                        } else 
+                                                (myWord %in% ng2DB$word1) 
+
+                                                j = 1
+                                                for (i in 1:nrow(ng2DB)) {
+                                                        if ((ng2DB$word1[i] == myWord) == FALSE) {
+                                                        next(i)
+                                                } else { 
+                                                        myWord2[j,1] <-  as.data.frame(as.list(as.character(ng2DB$word2[i])), stringsAsFactors=FALSE) 
+                                                        myWord2[j,2] <-  as.data.frame(as.list(as.character(ng2DB$word3[i])), stringsAsFactors=FALSE) 
+                                                j = j + 1       
+                                                next(i)
+                                                        }
+                                                }
+                                        #take only the top option
+                                        #myWordChoice[1,1] <- append(myWordChoice, myWord2$word2) 
+                                        myWordChoice[1,2] <- myWord2$word2[1]
+                                        
+                                        myWordChoice[2,2] <- ""
+                                        
+                                        myWordChoice[3,2] <- ""
+                                        
+                                        #colnames(myWordChoice) <- c("choice#", "myWordChoice")
+
+
+                                        #Make user selection from presented words
+                                        #****************************************
+                                        print("Your word choices are:")
+                                        myWordChoice
+                                        
+                                        mySelection <- as.numeric(readline(prompt="Choose a word from choices - enter 1, 2, 3, 4, or 5 for exit.:"))
+                                         
+                                        newWordChoice <- myWordChoice[mySelection, 2]
+                                        
+                                        #Add the "myWord" and "newWordChoice" to mySentence character string
+                                        mySentence <- append(mySentence,newWordChoice)
+                                       
+                                        #Build current sentence and show on screen
+                                        output <- paste(mySentence, collapse = " ")
+                                        output  
+
+                }
+        
+        
+```
+
+
+####Step F4. Exit and print the sentence generated from user inuts and predictions
+```{r}
+#Return final sentence
+output
+
+#Give User time before code discontinues after pressing enter
+cat ("Press [enter] to continue")
+line <- readline()
+```
+ 
+   
+
+
+##-------------------------------------------------------------------------------------
+###G. APPENDIX
+####Assignment Check List and Answering some of the more specific Assignment Questions. 
+####________________________________________________________________________________       
+####Week 1 Task 0: 
+####______________
+####1. What do the data look like?   
+#####[done]
+####2. Where do the data come from?  
+#####[done] 
+####3. Can you think of any other data sources that might help you in this project?   
+#####[done - see comment below]     
+#####[topic specific exp. technical publications]
+####4. What are the common steps in natural language processing? 
+#####[done, applied in sections of code above]  
+####5. What are some common issues in the analysis of text data? 
+#####[done, ackward non-ASCII characters, multiple white spaces]  
+####6. What is the relationship between NLP and the concepts you have learned in the Specialization? 
+#####[done, vey much so untidy data that needs processing before you can start working]
+####________________________________________________________________________________          
+####Week 1 Task 1: 
+####______________
+####1. Tokenization - identifying appropriate tokens such as words, punctuation, and numbers. Create function.       
+#####[done]
+####2. Profanity filtering - removing profanity and other words you do not want to predict.
+#####[done]
+####________________________________________________________________________________     
+####Week 2 Task 2:
+####______________
+####1. Some words are more frequent than others - what are the distributions of word frequencies?   
+#####[done]
+####2. What are the frequencies of 2-grams and 3-grams in the dataset?   
+#####[done]
+####3. How many unique words do you need in a frequency sorted dictionary to cover 50% of all word instances in the language? 90%?
+#####[done]
+####4. How do you evaluate how many of the words come from foreign languages? 
+#####[done]
+####5. Can you think of a way to increase the coverage -- identifying words that may not be in the corpora or using a smaller number of words in the dictionary to cover the same number of phrases?
+#####[done - Stemming words, removing redundant sparse terms, and maybe dropping two letter words may be ways of increasing the coverage per memory available]
+####________________________________________________________________________________   
+####Week 2 Task 3:
+####______________
+####1. How can you efficiently store an n-gram model (think Markov Chains)? 
+#####[in process of development]
+####2. How can you use the knowledge about word frequencies to make your model smaller and more efficient? 
+#####[done. Using bi-, tri-, and tetr-grams one can extract the words and word combinations that has a higer appearance frequency.]
+####3. How many parameters do you need (i.e. how big is n in your n-gram model)? 
+#####[significantly reduced from the 3000 lines started with, but not done yet.]
+####4. Can you think of simple ways to "smooth" the probabilities (think about giving all n-grams a non-zero probability even if they aren't observed in the data)?   
+#####[have not given consideration yet]
+####5. How do you evaluate whether your model is any good?  
+#####[have not given consideration yet]
+####6. How can you use backoff models to estimate the probability of unobserved n-grams?   
+#####[have not given consideration yet]
+####________________________________________________________________________________   
+####Week 3 Task 4:
+####______________
+####1.	How does the model perform for different choices of the parameters and size of the model?
+#####
+####2.	How much does the model slow down for the performance you gain?
+#####
+####3.	Does perplexity correlate with the other measures of accuracy?
+#####
+####4.	Can you reduce the size of the model (number of parameters) without reducing performance?
+#####
+
+
+                
+
+
+
